@@ -18,8 +18,9 @@ Multi client interactive with processing websocket server
     socket = new WebSocketP5(this, 8080); // 8080 is port number
   }
   ```
+- open client url in browser
 - click connect button on browser
-- and touch move or mouse click move on black area.
+- touch move or mouse click move on black area.
 
 ## Error
 - if port number already use, change port number at ``` MultiClientInteractive.pde ``` file and change ``` http://IP:PORT ``` port number.
