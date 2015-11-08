@@ -1,0 +1,249 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+	<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1" />
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Sockettester</title>
+	<style>
+		html,
+		body,
+		button,
+		canvas {
+			padding: 0;
+			margin: 0;
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			position: fixed;
+			width: 100%;
+			height: 100%;
+		}
+
+		body {
+			padding-top: 50px;
+			overflow: hidden;
+		}
+
+		button {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 1;
+			width: 100%;
+			height: 50px;
+			line-height: 50px;
+		}
+
+		canvas {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<button id="connectBtn">Connect</button>
+	<canvas id="myCvs"></canvas>
+	<script type="text/javascript">
+		// if all dom loaded
+		window.onload = function() {
+			// control connect or disconnect button
+      var connectBtn = document.getElementById('connectBtn');
+			// main canvas
+      var myCvs      = document.getElementById('myCvs');
+			// the context of canvas
+      var myCtx      = myCvs.getContext('2d');
+			// canvas width
+      var cvsWidth   = myCvs.offsetWidth;
+			// canvas height
+      var cvsHeight  = myCvs.offsetHeight;
+			// margin of top distance
+      var cvsOffTop  = myCvs.offsetTop;
+
+			// original canvas draw size !== canvas size
+			// so set to same
+			myCtx.canvas.width = cvsWidth;
+			myCtx.canvas.height = cvsHeight;
+
+			// websocket
+			var websocket = null;
+			// server address
+			// check computer IP: cmd => ipconfig /all
+			var host = "192.168.0.5";
+			// server port, need same with processing server port number
+			var port = 8080;
+			// server websocket channel, need same with server channel
+			var socket = "p5websocket";
+			// merge to server URL
+			var URL = "ws://" + host + ":" + port + "/p5websocket"
+			// connectState -> 0: disconnected state
+			// connectState -> 1: connecting to server
+			var connectState = 0;
+			// generate unique this device id
+			var deviceId = guid();
+			// ping server timer, will run every second
+			var pingTimer = null;
+
+			// add event to touch screen device
+			connectBtn.addEventListener('touchstart', clickConnectBtn, false);
+			myCvs.addEventListener('touchstart', startEvent, false);
+			myCvs.addEventListener('touchmove', moveEvent, false);
+			myCvs.addEventListener('touchend', endEvent, false);
+
+			// add event to mouse event device
+			connectBtn.addEventListener('click', clickConnectBtn, false);
+			myCvs.addEventListener('mousedown', startEvent, false);
+			myCvs.addEventListener('mousemove', moveEvent, false);
+			myCvs.addEventListener('mouseup', endEvent, false);
+
+			// mouse click down, or touch start
+			function startEvent(e) {
+				var x = e.clientX || e.touches[0].clientX;
+				var y = e.clientY - cvsOffTop || e.touches[0].clientY - cvsOffTop;
+				e.stopPropagation();
+			}
+			
+			// mouse click move, or touch move
+			function moveEvent(e) {
+				var x = e.clientX || e.touches[0].clientX;
+				var y = e.clientY - cvsOffTop || e.touches[0].clientY - cvsOffTop;
+
+				if (connectState) {
+					// if connecting server, then send data to server
+					websocket.send(JSON.stringify({
+						type: 'draw',
+						id: deviceId,
+						x: x / cvsWidth,
+						y: y / cvsHeight
+					}));
+				}
+				e.stopPropagation();
+			}
+
+			// mouse release, or touch end
+			function endEvent(e) {
+				console.log(e.type)
+				e.stopPropagation();
+			}
+
+			// click button event
+			function clickConnectBtn() {
+				if (connectState === 0) {
+					// if disconnect state
+					connectBtn.innerHTML = 'Connecting...'; // set button text
+					connectBtn.disabled = true;	// set button to disable, then can't click again
+					initWebsocket();	// try to connect to server
+				} else if (connectState === 1) {
+					// if connecting state
+					connectBtn.innerHTML = 'Disconnecting...'; // set button text
+					connectBtn.disabled = true;	// set button to disable, then can't click again
+					websocket.close(); // close websocket connection
+				}
+			};
+
+			// connect to server
+			function initWebsocket() {
+				// make websocket connection
+				websocket = new WebSocket(URL);
+
+				// if connect success
+				websocket.onopen = function(e) {
+					console.log('Connect to server success.');
+					connectBtn.innerHTML = 'Disconnect';
+					connectBtn.disabled = false;
+					connectState = 1;
+
+					// remove before timer
+					if (pingTimer) clearTimeout(pingTimer);
+					// run ping timer
+					pingServer();
+				};
+
+				// if connect error
+				websocket.onerror = function(error) {
+					console.log(error)
+				};
+
+				// if get data from server
+				websocket.onmessage = function(e) {
+					// parse JSON string to javascript Object
+					// server will send string of array
+					/** like this:
+						"[{
+							id: 'uniqueID',
+							x: 0.5,
+							y: 0.5,
+							radius: 10,
+							color: 'rgb(255,255,255)'
+						}]"
+					 */
+					var dataArr = JSON.parse(e.data);
+					// clear canvas
+					clear(myCtx);
+					for (var i = 0; i < dataArr.length; i++) {
+						// console.log(dataArr[i]);
+						// draw circles to canvas
+						drawCircle({
+							context: myCtx,
+							x: dataArr[i].x * cvsWidth,
+							y: dataArr[i].y * cvsHeight,
+							radius: dataArr[i].radius,
+							fill: dataArr[i].color
+						})
+					}
+				}
+
+				// if close websocket connection
+				websocket.onclose = function() {
+					console.log('Disconnected.')
+					connectBtn.innerHTML = 'Connect';
+					connectBtn.disabled = false;
+					connectState = 0;
+					if (pingTimer) clearTimeout(pingTimer);
+				}
+			}
+
+			// ping server: every time send this device id to server
+			function pingServer() {
+				websocket.send(JSON.stringify({
+					type: 'ping',
+					id: deviceId
+				}));
+				if (pingTimer) clearTimeout(pingTimer);
+				pingTimer = setTimeout(pingServer, 1000);
+			}
+
+			// draw canvas function
+			function drawCircle(option) {
+				console.log(option)
+				var ctx = option.context;
+
+				ctx.beginPath();
+				ctx.arc(option.x, option.y, option.radius, 0, 2 * Math.PI);
+				ctx.fillStyle = option.fill;
+				ctx.fill();
+			}
+
+			//clear canvas function
+			function clear( ctx ) {
+				ctx.setTransform(1, 0, 0, 1, 0, 0);
+				ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			};
+
+			// generate unique id function
+			function guid() {
+				function s4() {
+					return Math.floor((1 + Math.random()) * 0x10000)
+						.toString(16)
+						.substring(1);
+				}
+				return s4() + s4();
+			}
+		}
+	</script>
+</body>
+
+</html>
