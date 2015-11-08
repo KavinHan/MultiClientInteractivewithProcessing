@@ -38,30 +38,43 @@
 		}
 
 		canvas {
+			position: relative;
+			z-index: 10;
 			width: 100%;
 			height: 100%;
+		}
+		.debug-wrap {
+			position: absolute;
+			top: 50px;
+			left: 0;
+			z-index: 1;
 		}
 	</style>
 </head>
 
 <body>
 	<button id="connectBtn">Connect</button>
+	<div class="debug-wrap">
+		<p>X: <span id="gyroFB"></span>	</p>
+		<p>Y: <span id="gyroLR"></span></p>
+		<p>Z: <span id="gyroRT"></span></p>
+	</div>
 	<canvas id="myCvs"></canvas>
 	<script type="text/javascript">
 		// if all dom loaded
 		window.onload = function() {
 			// control connect or disconnect button
-      var connectBtn = document.getElementById('connectBtn');
+			var connectBtn = document.getElementById('connectBtn');
 			// main canvas
-      var myCvs      = document.getElementById('myCvs');
+			var myCvs = document.getElementById('myCvs');
 			// the context of canvas
-      var myCtx      = myCvs.getContext('2d');
+			var myCtx = myCvs.getContext('2d');
 			// canvas width
-      var cvsWidth   = myCvs.offsetWidth;
+			var cvsWidth = myCvs.offsetWidth;
 			// canvas height
-      var cvsHeight  = myCvs.offsetHeight;
+			var cvsHeight = myCvs.offsetHeight;
 			// margin of top distance
-      var cvsOffTop  = myCvs.offsetTop;
+			var cvsOffTop = myCvs.offsetTop;
 
 			// original canvas draw size !== canvas size
 			// so set to same
@@ -79,8 +92,8 @@
 			var socket = "p5websocket";
 			// merge to server URL
 			var URL = "ws://" + host + ":" + port + "/p5websocket"
-			// connectState -> 0: disconnected state
-			// connectState -> 1: connecting to server
+				// connectState -> 0: disconnected state
+				// connectState -> 1: connecting to server
 			var connectState = 0;
 			// generate unique this device id
 			var deviceId = guid();
@@ -105,7 +118,7 @@
 				var y = e.clientY - cvsOffTop || e.touches[0].clientY - cvsOffTop;
 				e.stopPropagation();
 			}
-			
+
 			// mouse click move, or touch move
 			function moveEvent(e) {
 				var x = e.clientX || e.touches[0].clientX;
@@ -134,12 +147,12 @@
 				if (connectState === 0) {
 					// if disconnect state
 					connectBtn.innerHTML = 'Connecting...'; // set button text
-					connectBtn.disabled = true;	// set button to disable, then can't click again
-					initWebsocket();	// try to connect to server
+					connectBtn.disabled = true; // set button to disable, then can't click again
+					initWebsocket(); // try to connect to server
 				} else if (connectState === 1) {
 					// if connecting state
 					connectBtn.innerHTML = 'Disconnecting...'; // set button text
-					connectBtn.disabled = true;	// set button to disable, then can't click again
+					connectBtn.disabled = true; // set button to disable, then can't click again
 					websocket.close(); // close websocket connection
 				}
 			};
@@ -228,7 +241,7 @@
 			}
 
 			//clear canvas function
-			function clear( ctx ) {
+			function clear(ctx) {
 				ctx.setTransform(1, 0, 0, 1, 0, 0);
 				ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 			};
@@ -242,6 +255,24 @@
 				}
 				return s4() + s4();
 			}
+		}
+		if (window.DeviceOrientationEvent) {
+			// Listen for the deviceorientation event and handle the raw data
+			window.addEventListener('deviceorientation', function(eventData) {
+				// gamma is the left-to-right tilt in degrees, where right is positive
+				var tiltLR = eventData.gamma;
+
+				// beta is the front-to-back tilt in degrees, where front is positive
+				var tiltFB = eventData.beta;
+
+				// alpha is the compass direction the device is facing in degrees
+				var dir = eventData.alpha
+
+				document.getElementById("gyroLR").innerHTML = parseInt(tiltLR*100)/100;
+				document.getElementById("gyroFB").innerHTML = parseInt(tiltFB*100)/100;
+				document.getElementById("gyroRT").innerHTML = parseInt(dir*100)/100;
+
+			}, false);
 		}
 	</script>
 </body>
