@@ -7,6 +7,7 @@ Multi client interactive with processing websocket server
 - websocket url is ``` http://IP:PORT/p5websocket ```, default channel is ```p5websocket```
 
 ## Run step:
+- copy ```project\libraries\websocketP5``` folder to ```C:\Users\username\Documents\Processing\libraries\```
 - open and run server file: ``` MultiClientInteractive.pde ```
 - client url is : ``` http://IP:PORT ```
 - check IP: ``` cmd => ipconfig /all ```
